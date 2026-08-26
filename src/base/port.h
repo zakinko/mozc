@@ -47,6 +47,7 @@ enum class PlatformType {
   kIos,       // iOS Devices or Simulator
   kWasm,      // WebAssembly
   kChromeos,  // ChromeOS
+  kNetBSD,    // NetBSD
 };
 
 // kTargetPlatform is the current build target platform.
@@ -58,7 +59,9 @@ inline constexpr PlatformType kTargetPlatform = PlatformType::kChromeos;
 #else                                        // OS_CHROMEOS
 inline constexpr PlatformType kTargetPlatform = PlatformType::kLinux;
 #endif                                       // !OS_CHROMEOS
-#elif defined(_WIN32)                        // __linux__
+#elif defined(__NetBSD__)                    // __linux__
+inline constexpr PlatformType kTargetPlatform = PlatformType::kNetBSD;
+#elif defined(_WIN32)                        // __NetBSD__
 inline constexpr PlatformType kTargetPlatform = PlatformType::kWindows;
 #elif defined(__APPLE__)                     // _WIN32
 #if TARGET_OS_OSX
@@ -127,6 +130,11 @@ constexpr bool IsLinuxBase() {
 // The build target is Linux, excluding Android and ChromeOS.
 constexpr bool IsLinux() {
   return internal::kTargetPlatform == internal::PlatformType::kLinux;
+}
+
+// The build target is NetBSD.
+constexpr bool IsNetBSD() {
+  return internal::kTargetPlatform == internal::PlatformType::kNetBSD;
 }
 
 // The build target is Android.

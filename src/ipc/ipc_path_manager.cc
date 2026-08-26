@@ -389,7 +389,7 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
   server_pid_ = pid;
 #endif  // __APPLE__
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__NetBSD__)
   // load from /proc/<pid>/exe
   std::string proc = absl::StrFormat("/proc/%u/exe", pid);
   absl::StatusOr<std::string> filename = FileUtil::ReadSymlink(proc);
