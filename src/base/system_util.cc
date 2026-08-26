@@ -215,7 +215,7 @@ std::string UserProfileDirectoryImpl::GetUserProfileDirectory() const {
     return FileUtil::JoinPath(dir, "Mozc");
 #endif  //  GOOGLE_JAPANESE_INPUT_BUILD
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__NetBSD__)
     // 1. If "$HOME/.mozc" already exists,
     //    use "$HOME/.mozc" for backward compatibility.
     // 2. If $XDG_CONFIG_HOME is defined
@@ -313,7 +313,7 @@ std::string GetMozcInstallDirFromRegistry() {
 #endif  // _WIN32
 
 std::string SystemUtil::GetServerDirectory() {
-  if constexpr (port::IsLinuxBase() || port::IsWasm()) {
+  if constexpr (port::IsLinuxBase() || port::IsWasm() || port::IsNetBSD()) {
     return std::string(kMozcServerDir);
   }
 
@@ -369,7 +369,7 @@ std::string SystemUtil::GetToolPath() {
 }
 
 std::string SystemUtil::GetDocumentDirectory() {
-  if constexpr (port::IsLinuxBase()) {
+  if constexpr (port::IsLinuxBase() || port::IsNetBSD()) {
     return std::string(kMozcDocumentDir);
   } else if constexpr (port::IsAppleBase()) {
     return GetServerDirectory();
@@ -562,7 +562,7 @@ std::string GetSessionIdString() {
 #endif  // _WIN32
 
 std::string SystemUtil::GetDesktopNameAsString() {
-#if defined(__linux__) || defined(__wasm__)
+#if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__)
   return Environ::GetEnv("DISPLAY");
 #endif  // __linux__ || __wasm__
 
@@ -623,6 +623,8 @@ std::string SystemUtil::GetOSVersionString() {
                           AndroidUtil::kSystemPropertyOsVersion, "Unknown"));
 #elif defined(__linux__)
   return "Linux";
+#elif defined(__NetBSD__)
+  return "NetBSD";
 #else   // !_WIN32 && !__APPLE__ && !__linux__
   return "Unknown";
 #endif  // _WIN32, __APPLE__, __linux__
@@ -660,7 +662,7 @@ uint64_t SystemUtil::GetTotalPhysicalMemory() {
   return total_memory;
 #endif  // __APPLE__
 
-#if defined(__linux__) || defined(__wasm__)
+#if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__)
 #if defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
   const int32_t page_size = sysconf(_SC_PAGESIZE);
   const int32_t number_of_phyisical_pages = sysconf(_SC_PHYS_PAGES);

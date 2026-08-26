@@ -27,8 +27,9 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// __linux__ only. Note that __ANDROID__/__wasm__ don't reach here.
-#if defined(__linux__)
+// __linux__ and __NetBSD__ only. Note that __ANDROID__/__wasm__ don't reach
+// here.
+#if defined(__linux__) || defined(__NetBSD__)
 
 #include <fcntl.h>
 #include <sys/select.h>
@@ -121,6 +122,25 @@ bool IsWriteTimeout(int socket, absl::Duration timeout) {
 bool IsPeerValid(int socket, pid_t *pid) {
   *pid = 0;
 
+#if defined(__NetBSD__)
+  // NetBSD has no SO_PEERCRED.  The equivalent is LOCAL_PEEREID on the
+  // unix domain protocol level, which fills in struct unpcbid.
+  struct unpcbid peer_cred;
+  int peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEEREID, &peer_cred,
+                 reinterpret_cast<socklen_t *>(&peer_cred_len)) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.unp_euid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.unp_euid << "!="
+                 << ::geteuid();
+    return false;
+  }
+
+  *pid = peer_cred.unp_pid;
+#else   // __NetBSD__
   struct ucred peer_cred;
   int peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred,
@@ -135,6 +155,7 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.pid;
+#endif  // !__NetBSD__
 
   return true;
 }

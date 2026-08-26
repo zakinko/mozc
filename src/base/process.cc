@@ -100,7 +100,7 @@ bool Process::OpenBrowser(absl::string_view url) {
       L"open", win32::Utf8ToWide(url).c_str(), nullptr);
 #endif  // _WIN32
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__NetBSD__)
 
 #ifndef MOZC_BROWSER_COMMAND
   // xdg-open which uses kfmclient or gnome-open internally works both on KDE
@@ -189,7 +189,7 @@ bool Process::SpawnProcess(absl::string_view path, absl::string_view arg,
   }
 #endif  // __APPLE__
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__NetBSD__)
   // Do not call posix_spawn() for obviously bad path.
   if (!S_ISREG(statbuf.st_mode)) {
     LOG(ERROR) << "Not a regular file: " << path;
@@ -389,7 +389,7 @@ bool Process::LaunchErrorMessageDialog(absl::string_view error_type) {
   }
 #endif  // _WIN32
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if (defined(__linux__) || defined(__NetBSD__)) && !defined(__ANDROID__)
   constexpr char kMozcTool[] = "mozc_tool";
   const std::string arg =
       absl::StrCat("--mode=error_message_dialog --error_type=", error_type);
