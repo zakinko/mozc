@@ -238,7 +238,7 @@ std::unique_ptr<ImeContext> Session::CreateContext(
   // Tests for session layer (session_handler_scenario_test, etc) can be
   // unstable.
 #if (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) || defined(__linux__) || \
-    defined(__wasm__) || defined(__NetBSD__)
+    defined(__wasm__) || defined(__NetBSD__) || defined(__FreeBSD__)
   context->mutable_converter()->set_use_cascading_window(false);
 #endif  // TARGET_OS_IPHONE || __linux__ || __wasm__
 
@@ -1010,7 +1010,7 @@ void Session::UpdatePreferences(commands::Command* command) {
   }
 
 #if (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) || defined(__linux__) || \
-    defined(__wasm__) || defined(__NetBSD__)
+    defined(__wasm__) || defined(__NetBSD__) || defined(__FreeBSD__)
   context_->mutable_converter()->set_use_cascading_window(false);
 #else   // TARGET_OS_IPHONE || __linux__ || __wasm__
   if (config.has_use_cascading_window()) {

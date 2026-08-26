@@ -1,0 +1,49 @@
+# CI for the BSDs.
+#
+# FreeBSD has Bazel 9 in ports, so it can build the same way the Linux job
+# does. The other BSDs have no Bazel 9 yet, so they are not here.
+#
+# rules_python publishes an interpreter for Linux, macOS and Windows only, so
+# the BSDs have to be told to use the one that is installed.
+name: CI for BSD
+
+on: push
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freebsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in a FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          mem: 12288
+          copyback: false
+          prepare: |
+            pkg install -y bazel9 openjdk21 bash python3 curl
+          run: |
+            set -e
+            export JAVA_HOME=/usr/local/openjdk21
+            cd src
+            bazel --output_user_root=/tmp/bazel \
+              build unix/emacs:mozc_emacs_helper \
+              --config oss_linux \
+              --compilation_mode opt \
+              --jobs 2 \
+              --action_env=PATH="$PATH" \
+              --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
+              --verbose_failures
+            ls -l bazel-bin/unix/emacs/mozc_emacs_helper

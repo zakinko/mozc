@@ -67,6 +67,12 @@
 #include "base/mac/mac_util.h"
 #endif  // __APPLE__
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+
+#include <climits>
+#endif  // __FreeBSD__
+
 #ifdef _WIN32
 // clang-format off
 #include <windows.h>
@@ -388,6 +394,23 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
   }
   server_pid_ = pid;
 #endif  // __APPLE__
+
+#ifdef __FreeBSD__
+  // FreeBSD does not mount procfs by default, so ask the kernel instead.
+  {
+    int name[] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME,
+                  static_cast<int>(pid)};
+    char path[PATH_MAX];
+    size_t path_len = sizeof(path);
+    if (sysctl(name, std::size(name), path, &path_len, nullptr, 0) < 0) {
+      LOG(ERROR) << "sysctl KERN_PROC_PATHNAME failed";
+      return false;
+    }
+    // path_len counts the terminating NUL.
+    server_path_.assign(path, path_len > 0 ? path_len - 1 : 0);
+    server_pid_ = pid;
+  }
+#endif  // __FreeBSD__
 
 #if defined(__linux__) || defined(__NetBSD__)
   // load from /proc/<pid>/exe

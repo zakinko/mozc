@@ -48,6 +48,7 @@ enum class PlatformType {
   kWasm,      // WebAssembly
   kChromeos,  // ChromeOS
   kNetBSD,    // NetBSD
+  kFreeBSD,   // FreeBSD
 };
 
 // kTargetPlatform is the current build target platform.
@@ -61,6 +62,8 @@ inline constexpr PlatformType kTargetPlatform = PlatformType::kLinux;
 #endif                                       // !OS_CHROMEOS
 #elif defined(__NetBSD__)                    // __linux__
 inline constexpr PlatformType kTargetPlatform = PlatformType::kNetBSD;
+#elif defined(__FreeBSD__)                   // __NetBSD__
+inline constexpr PlatformType kTargetPlatform = PlatformType::kFreeBSD;
 #elif defined(_WIN32)                        // __NetBSD__
 inline constexpr PlatformType kTargetPlatform = PlatformType::kWindows;
 #elif defined(__APPLE__)                     // _WIN32
@@ -135,6 +138,11 @@ constexpr bool IsLinux() {
 // The build target is NetBSD.
 constexpr bool IsNetBSD() {
   return internal::kTargetPlatform == internal::PlatformType::kNetBSD;
+}
+
+// The build target is FreeBSD.
+constexpr bool IsFreeBSD() {
+  return internal::kTargetPlatform == internal::PlatformType::kFreeBSD;
 }
 
 // The build target is Android.
