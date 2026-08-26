@@ -27,9 +27,9 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// __linux__ and __NetBSD__ only. Note that __ANDROID__/__wasm__ don't reach
+// __linux__ and the BSDs only. Note that __ANDROID__/__wasm__ don't reach
 // here.
-#if defined(__linux__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__)
 
 #include <fcntl.h>
 #include <sys/select.h>
@@ -38,6 +38,10 @@
 #include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#ifdef __FreeBSD__
+#include <sys/ucred.h>
+#endif  // __FreeBSD__
 
 #include <cerrno>
 #include <cstddef>
@@ -140,7 +144,28 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.unp_pid;
-#else   // __NetBSD__
+#elif defined(__FreeBSD__)
+  // FreeBSD has no SO_PEERCRED either.  LOCAL_PEERCRED fills in struct
+  // xucred, which carries the peer's pid.
+  struct xucred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.cr_version != XUCRED_VERSION) {
+    LOG(ERROR) << "unexpected xucred version " << peer_cred.cr_version;
+    return false;
+  }
+
+  if (peer_cred.cr_uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.cr_uid << "!=" << ::geteuid();
+    return false;
+  }
+
+  *pid = peer_cred.cr_pid;
+#else   // __FreeBSD__
   struct ucred peer_cred;
   int peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred,
@@ -155,7 +180,7 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.pid;
-#endif  // !__NetBSD__
+#endif  // !__linux__
 
   return true;
 }
