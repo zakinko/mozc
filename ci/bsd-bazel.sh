@@ -47,6 +47,16 @@ fi
 
 "$BAZEL" --version
 
+# OpenBSD は C++ のオブジェクトを C のドライバでリンクするので、C++ の
+# ランタイムを明示的に繋ぐ必要がある。bazel 自身の bootstrap でも同じことを
+# している。exec 側 (protoc-gen-cpp など) にも要るので両方に渡す。
+MOZC_LINKOPTS=""
+if [ "$(uname -s)" = OpenBSD ]; then
+	for l in -lc++ -lc++abi -lpthread; do
+		MOZC_LINKOPTS="$MOZC_LINKOPTS --linkopt=$l --host_linkopt=$l"
+	done
+fi
+
 echo "=== mozc を建てる"
 cd "$MOZC_SRC"
 # rules_python が配る interpreter は Linux と macOS と Windows の分だけなので、
@@ -59,6 +69,7 @@ cd "$MOZC_SRC"
 	--action_env=PATH="$PATH" \
 	--host_action_env=PATH="$PATH" \
 	--extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
+	$MOZC_LINKOPTS \
 	--verbose_failures
 
 ls -l bazel-bin/unix/emacs/mozc_emacs_helper
