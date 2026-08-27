@@ -311,7 +311,12 @@ void IPCClient::Init(absl::string_view name,
     address.sun_family = AF_UNIX;
     absl::SNPrintF(address.sun_path, sizeof(address.sun_path), "%s",
                    server_address);
-    const size_t sun_len = sizeof(address.sun_family) + server_address_length;
+    // sizeof(sun_family) is not the offset of sun_path.  NetBSD's
+    // sockaddr_un leads with a one byte sun_len and has a one byte
+    // sa_family_t, so adding sizeof(sun_family) is one short there and the
+    // last character of the path is cut off.
+    const size_t sun_len =
+        offsetof(struct sockaddr_un, sun_path) + server_address_length;
     pid_t pid = 0;
     if (::connect(socket_, reinterpret_cast<const sockaddr *>(&address),
                   sun_len) != 0 ||
@@ -427,7 +432,8 @@ IPCServer::IPCServer(absl::string_view name, int32_t num_connections,
   int on = 1;
   ::setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on),
                sizeof(on));
-  const size_t sun_len = sizeof(addr.sun_family) + server_address_.size();
+  const size_t sun_len =
+      offsetof(struct sockaddr_un, sun_path) + server_address_.size();
   if (is_file_socket) {
     // Linux does not use files for IPC.
     ::chmod(server_address_.c_str(), 0600);
