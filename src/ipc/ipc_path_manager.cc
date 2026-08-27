@@ -67,11 +67,11 @@
 #include "base/mac/mac_util.h"
 #endif  // __APPLE__
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__NetBSD__)
 #include <sys/sysctl.h>
 
 #include <climits>
-#endif  // __FreeBSD__
+#endif  // __FreeBSD__ || __NetBSD__
 
 #ifdef _WIN32
 // clang-format off
@@ -412,7 +412,26 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
   }
 #endif  // __FreeBSD__
 
-#if defined(__linux__) || defined(__NetBSD__)
+#ifdef __NetBSD__
+  // NetBSD ships procfs as noauto, so /proc/<pid>/exe is absent on a stock
+  // install and this has to go through the kernel too.  The MIB is not the
+  // one FreeBSD uses: pid comes third and KERN_PROC_PATHNAME last.
+  {
+    int name[] = {CTL_KERN, KERN_PROC_ARGS, static_cast<int>(pid),
+                  KERN_PROC_PATHNAME};
+    char path[PATH_MAX];
+    size_t path_len = sizeof(path);
+    if (sysctl(name, std::size(name), path, &path_len, nullptr, 0) < 0) {
+      LOG(ERROR) << "sysctl KERN_PROC_PATHNAME failed";
+      return false;
+    }
+    // path_len counts the terminating NUL.
+    server_path_.assign(path, path_len > 0 ? path_len - 1 : 0);
+    server_pid_ = pid;
+  }
+#endif  // __NetBSD__
+
+#ifdef __linux__
   // load from /proc/<pid>/exe
   std::string proc = absl::StrFormat("/proc/%u/exe", pid);
   absl::StatusOr<std::string> filename = FileUtil::ReadSymlink(proc);
