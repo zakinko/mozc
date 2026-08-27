@@ -1,13 +1,23 @@
 # CI for the BSDs.
 #
-# FreeBSD has Bazel 9 in ports, so it can build the same way the Linux job
-# does. The other BSDs have no Bazel 9 yet, so they are not here.
+# Mozc 3.34 builds with Bazel 9 only. FreeBSD has it in ports, so that job
+# installs the package. NetBSD, OpenBSD and DragonFly have no Bazel 9 at all --
+# pkgsrc stops at 6.4.0 and the other two have no Bazel -- so those jobs build
+# it from a ported tree first and put it in /usr/local/bin. From there on all
+# four take the same path.
+#
+# Building Bazel takes two to three hours, so the jobs that have to do it run
+# on the CI branch, on request, and once a week; not on every push.
 #
 # rules_python publishes an interpreter for Linux, macOS and Windows only, so
 # the BSDs have to be told to use the one that is installed.
 name: CI for BSD
 
-on: push
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0'
 
 permissions:
   contents: read
@@ -18,6 +28,7 @@ concurrency:
 
 jobs:
   freebsd:
+    name: FreeBSD
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -33,17 +44,102 @@ jobs:
           mem: 12288
           copyback: false
           prepare: |
-            pkg install -y bazel9 openjdk21 bash python3 curl
+            pkg install -y bazel9 openjdk21 bash python3 curl git
           run: |
-            set -e
             export JAVA_HOME=/usr/local/openjdk21
-            cd src
-            bazel --output_user_root=/tmp/bazel \
-              build unix/emacs:mozc_emacs_helper \
-              --config oss_linux \
-              --compilation_mode opt \
-              --jobs 2 \
-              --action_env=PATH="$PATH" \
-              --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
-              --verbose_failures
-            ls -l bazel-bin/unix/emacs/mozc_emacs_helper
+            sh ci/bsd-bazel.sh
+
+  netbsd:
+    name: NetBSD
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
+    steps:
+      # ゲストのディスクは runner の / から取る。使わないものを先に落として
+      # おかないと、bazel の output base で足りなくなる。
+      - name: Make room on the runner
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in a NetBSD VM
+        uses: vmactions/netbsd-vm@v1
+        with:
+          release: "11.0"
+          usesh: true
+          mem: 8192
+          copyback: false
+          prepare: |
+            set -e
+            # cdn の openjdk21 は X11 の共有ライブラリに依存している。VM には
+            # X の set が入っていないので、先に xbase だけ展開しておく。
+            ftp -o /tmp/xbase.tar.xz "https://cdn.NetBSD.org/pub/NetBSD/NetBSD-11.0/$(uname -m)/binary/sets/xbase.tar.xz"
+            tar -C / -xf /tmp/xbase.tar.xz
+            /usr/sbin/pkg_add -U pkgin
+            pkgin -y install openjdk21 bash zip unzip python313 go126 curl git-base
+          run: |
+            export JAVA_HOME=/usr/pkg/java/openjdk21
+            export PATH=/usr/pkg/bin:/usr/pkg/sbin:/usr/pkg/go126/bin:$PATH
+            export BAZEL_SH=/usr/pkg/bin/bash
+            # bazel を建てる側に渡す。zakinko/bazel の BSD の job と同じ。
+            export EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk --java_language_version=21 --tool_java_language_version=21 --extra_toolchains=//toolchain_local:netbsd_python3_toolchain,//toolchain_local:local_jdk_21_runtime,//toolchain_local:local_jdk_21_bootstrap,//toolchain_local:local_jdk_21_runtime_v,//toolchain_local:local_jdk_21_bootstrap_v --jobs=2"
+            sh ci/bsd-bazel.sh
+
+  openbsd:
+    name: OpenBSD
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
+    steps:
+      - name: Make room on the runner
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in an OpenBSD VM
+        uses: vmactions/openbsd-vm@v1
+        with:
+          usesh: true
+          mem: 8192
+          copyback: false
+          prepare: |
+            pkg_add -I jdk%21 bash zip unzip python%3 go curl git
+          run: |
+            export JAVA_HOME=$(ls -d /usr/local/jdk-21* | head -1)
+            export BAZEL_SH=/usr/local/bin/bash
+            export EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk --java_language_version=21 --tool_java_language_version=21 --jobs=2"
+            sh ci/bsd-bazel.sh
+
+  dragonflybsd:
+    name: DragonFly BSD
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
+    # bazel の bootstrap がまだ通っていない。rules_go が JVM の os.name を
+    # そのまま GOOS にしていて、DragonFly だけ綴りが食い違う。
+    continue-on-error: true
+    steps:
+      - name: Make room on the runner
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in a DragonFly BSD VM
+        uses: vmactions/dragonflybsd-vm@v1
+        with:
+          usesh: true
+          mem: 8192
+          copyback: false
+          prepare: |
+            pkg install -y openjdk21 bash zip unzip python3 go curl git
+          run: |
+            export JAVA_HOME=/usr/local/openjdk21
+            export BAZEL_SH=/usr/local/bin/bash
+            export EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk --java_language_version=21 --tool_java_language_version=21 --jobs=2"
+            sh ci/bsd-bazel.sh
