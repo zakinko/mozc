@@ -79,6 +79,9 @@ jobs:
             tar -C / -xf /tmp/xbase.tar.xz
             /usr/sbin/pkg_add -U pkgin
             pkgin -y install openjdk21 bash zip unzip python313 go126 curl git-base
+            # pkgsrc が置くのは python3.13 だけで、python3 という名前は無い。
+            # mozc の build tool は python3 を呼ぶので繋いでおく。
+            ln -sf /usr/pkg/bin/python3.13 /usr/pkg/bin/python3
           run: |
             export JAVA_HOME=/usr/pkg/java/openjdk21
             export PATH=/usr/pkg/bin:/usr/pkg/sbin:/usr/pkg/go126/bin:$PATH
@@ -107,7 +110,9 @@ jobs:
           mem: 8192
           copyback: false
           prepare: |
-            pkg_add -I jdk%21 bash zip unzip python%3 go curl git
+            # unzip は他の package とも綴りが当たるので、末尾の -- で
+            # 版の付かない方を名指しする。
+            pkg_add -I jdk%21 bash zip unzip-- python%3 go curl git
           run: |
             export JAVA_HOME=$(ls -d /usr/local/jdk-21* | head -1)
             export BAZEL_SH=/usr/local/bin/bash
@@ -141,5 +146,6 @@ jobs:
           run: |
             export JAVA_HOME=/usr/local/openjdk21
             export BAZEL_SH=/usr/local/bin/bash
+            export PATH=/usr/local/bin:/usr/local/sbin:$PATH
             export EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk --java_language_version=21 --tool_java_language_version=21 --jobs=2"
             sh ci/bsd-bazel.sh
