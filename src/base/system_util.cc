@@ -215,7 +215,8 @@ std::string UserProfileDirectoryImpl::GetUserProfileDirectory() const {
     return FileUtil::JoinPath(dir, "Mozc");
 #endif  //  GOOGLE_JAPANESE_INPUT_BUILD
 
-#elif defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__)
+#elif defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
+    defined(__OpenBSD__)
     // 1. If "$HOME/.mozc" already exists,
     //    use "$HOME/.mozc" for backward compatibility.
     // 2. If $XDG_CONFIG_HOME is defined
@@ -564,7 +565,7 @@ std::string GetSessionIdString() {
 
 std::string SystemUtil::GetDesktopNameAsString() {
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__)
   return Environ::GetEnv("DISPLAY");
 #endif  // __linux__ || __wasm__
 
@@ -629,6 +630,8 @@ std::string SystemUtil::GetOSVersionString() {
   return "NetBSD";
 #elif defined(__FreeBSD__)
   return "FreeBSD";
+#elif defined(__OpenBSD__)
+  return "OpenBSD";
 #else   // !_WIN32 && !__APPLE__ && !__linux__
   return "Unknown";
 #endif  // _WIN32, __APPLE__, __linux__
@@ -667,7 +670,7 @@ uint64_t SystemUtil::GetTotalPhysicalMemory() {
 #endif  // __APPLE__
 
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__)
 #if defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
   const int32_t page_size = sysconf(_SC_PAGESIZE);
   const int32_t number_of_phyisical_pages = sysconf(_SC_PHYS_PAGES);
