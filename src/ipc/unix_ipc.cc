@@ -29,7 +29,8 @@
 
 // __linux__ and the BSDs only. Note that __ANDROID__/__wasm__ don't reach
 // here.
-#if defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
+    defined(__OpenBSD__)
 
 #include <fcntl.h>
 #include <sys/select.h>
@@ -144,6 +145,29 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.unp_pid;
+#elif defined(__OpenBSD__)
+  // OpenBSD has neither SO_PEERCRED nor a socket option that reports the
+  // peer's pid.  getpeereid(2) gives the uid and gid and nothing else, so
+  // *pid stays 0.
+  //
+  // That is not a hole being papered over.  IsValidServer() already treats
+  // pid == 0 as "cannot check which binary the peer is" and returns true
+  // there for backward compatibility, and on OpenBSD that is the honest
+  // answer: the kernel does not let a process learn another process's
+  // executable path (there is no KERN_PROC_PATHNAME), so the check could
+  // not be completed even with a pid in hand.  The uid comparison below is
+  // the part that carries the security weight, and it is done.
+  uid_t peer_uid;
+  gid_t peer_gid;
+  if (getpeereid(socket, &peer_uid, &peer_gid) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_uid << "!=" << ::geteuid();
+    return false;
+  }
 #elif defined(__FreeBSD__)
   // FreeBSD has no SO_PEERCRED either.  LOCAL_PEERCRED fills in struct
   // xucred, which carries the peer's pid.

@@ -265,7 +265,7 @@ bool WinMacPasswordManager::RemovePassword() { return RemovePasswordFile(); }
 // to other Linux distro, you might want to implement a new password manager
 // which adopts some secure mechanism such like gnome-keyring.
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__)
 typedef PlainPasswordManager DefaultPasswordManager;
 #endif  // __linux__ || __wasm__
 
