@@ -15,6 +15,12 @@ name: CI for BSD
 
 on:
   push:
+    paths: &bsd_paths
+      - 'src/**'
+      - 'ci/bsd-bazel.sh'
+      - '.github/workflows/bsd.yaml'
+  pull_request:
+    paths: *bsd_paths
   workflow_dispatch:
   schedule:
     - cron: '0 18 * * 0'
@@ -53,7 +59,6 @@ jobs:
     name: NetBSD
     runs-on: ubuntu-latest
     timeout-minutes: 350
-    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
     steps:
       # ゲストのディスクは runner の / から取る。使わないものを先に落として
       # おかないと、bazel の output base で足りなくなる。
@@ -94,7 +99,6 @@ jobs:
     name: OpenBSD
     runs-on: ubuntu-latest
     timeout-minutes: 350
-    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
     steps:
       - name: Make room on the runner
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
@@ -123,7 +127,6 @@ jobs:
     name: DragonFly BSD
     runs-on: ubuntu-latest
     timeout-minutes: 350
-    if: github.ref_name == 'netbsd-ci' || github.event_name != 'push'
     # bazel の bootstrap がまだ通っていない。rules_go が JVM の os.name を
     # そのまま GOOS にしていて、DragonFly だけ綴りが食い違う。
     continue-on-error: true
