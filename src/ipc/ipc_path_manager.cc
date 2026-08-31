@@ -460,7 +460,21 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
   // was cleared above, and the comparison at the end of this function would
   // measure a real path against an empty string and refuse the connection.
   // The uid check in IsPeerValid() is what carries the weight on OpenBSD.
-  server_pid_ = pid;
+  //
+  // Nothing is cached on the way out, deliberately.  There is a comparison
+  // near the top of this function - before server_path_ is cleared - that
+  // short-circuits on a matching server_pid_:
+  //
+  //   if (pid == server_pid_) {
+  //     return (server_path == server_path_);
+  //   }
+  //
+  // Setting server_pid_ here would send the second call into that arm with
+  // server_path_ still empty, so the first connection would succeed and
+  // every one after it would be refused.  Storing server_path_ as well
+  // would balance the books but would cache a path that was never looked
+  // up, which is worse: later calls would pass wearing the face of a
+  // completed check.
   return true;
 #endif  // __OpenBSD__
 
