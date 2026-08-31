@@ -117,7 +117,7 @@ float CPUStats::GetSystemCPULoad() {
 #endif  // __APPLE__
 
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__) || defined(__OpenBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   // NOT IMPLEMENTED
   // TODO(taku): implement Linux version
   // can take the info from /proc/stats
@@ -171,7 +171,7 @@ float CPUStats::GetCurrentProcessCPULoad() {
 #endif  // __APPLE__
 
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__) || defined(__OpenBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   // not implemented
   const uint64_t total_times = 0;
   const uint64_t cpu_times = 0;
@@ -203,7 +203,7 @@ size_t CPUStats::GetNumberOfProcessors() const {
 #endif  // __APPLE__
 
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
-    defined(__FreeBSD__) || defined(__OpenBSD__)
+    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   // Not implemented
   return 1;
 #endif  // __linux__ || __wasm__
