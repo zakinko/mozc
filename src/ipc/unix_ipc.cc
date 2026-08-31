@@ -171,9 +171,9 @@ bool IsPeerValid(int socket, pid_t *pid) {
   *pid = peer_cred.pid;
 #elif defined(__FreeBSD__)
   // FreeBSD has no SO_PEERCRED.  LOCAL_PEERCRED fills in struct xucred,
-  // whose cr_pid sits in a union with an unused pointer.  Not measured
-  // here yet; the DragonFly arm below is what was measured, and it does
-  // not have cr_pid at all.
+  // whose cr_pid sits in a union with an unused pointer.  Measured on
+  // FreeBSD 14.3-RELEASE/amd64: a forked pair reports cr_pid as the
+  // child's pid, not the caller's, so it really is the peer's.
   struct xucred peer_cred;
   socklen_t peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
