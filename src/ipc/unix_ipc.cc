@@ -30,7 +30,7 @@
 // __linux__ and the BSDs only. Note that __ANDROID__/__wasm__ don't reach
 // here.
 #if defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
-    defined(__OpenBSD__)
+    defined(__OpenBSD__) || defined(__DragonFly__)
 
 #include <fcntl.h>
 #include <sys/select.h>
@@ -146,31 +146,34 @@ bool IsPeerValid(int socket, pid_t *pid) {
 
   *pid = peer_cred.unp_pid;
 #elif defined(__OpenBSD__)
-  // OpenBSD has neither SO_PEERCRED nor a socket option that reports the
-  // peer's pid.  getpeereid(2) gives the uid and gid and nothing else, so
-  // *pid stays 0.
+  // OpenBSD does have SO_PEERCRED; it fills in struct sockpeercred, which
+  // carries the pid alongside the uid and gid.  Measured on OpenBSD 7.8:
+  // SO_PEERCRED is 4130 and a bound/connected AF_UNIX pair reports the
+  // peer's pid.
   //
-  // That is not a hole being papered over.  IsValidServer() already treats
-  // pid == 0 as "cannot check which binary the peer is" and returns true
-  // there for backward compatibility, and on OpenBSD that is the honest
-  // answer: the kernel does not let a process learn another process's
-  // executable path (there is no KERN_PROC_PATHNAME), so the check could
-  // not be completed even with a pid in hand.  The uid comparison below is
-  // the part that carries the security weight, and it is done.
-  uid_t peer_uid;
-  gid_t peer_gid;
-  if (getpeereid(socket, &peer_uid, &peer_gid) < 0) {
+  // What OpenBSD does not have is KERN_PROC_PATHNAME, so the pid cannot be
+  // turned into an executable path.  IsValidServer() gets a real pid here
+  // and skips only the path comparison - unlike DragonFly below, where
+  // there is no pid to be had in the first place.
+  struct sockpeercred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred,
+                 &peer_cred_len) < 0) {
     LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
     return false;
   }
 
-  if (peer_uid != ::geteuid()) {
-    LOG(WARNING) << "uid mismatch." << peer_uid << "!=" << ::geteuid();
+  if (peer_cred.uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.uid << "!=" << ::geteuid();
     return false;
   }
+
+  *pid = peer_cred.pid;
 #elif defined(__FreeBSD__)
-  // FreeBSD has no SO_PEERCRED either.  LOCAL_PEERCRED fills in struct
-  // xucred, which carries the peer's pid.
+  // FreeBSD has no SO_PEERCRED.  LOCAL_PEERCRED fills in struct xucred,
+  // whose cr_pid sits in a union with an unused pointer.  Not measured
+  // here yet; the DragonFly arm below is what was measured, and it does
+  // not have cr_pid at all.
   struct xucred peer_cred;
   socklen_t peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
@@ -189,6 +192,34 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.cr_pid;
+#elif defined(__DragonFly__)
+  // DragonFly has LOCAL_PEERCRED and struct xucred like FreeBSD, but its
+  // xucred stops at the group list: there is no cr_pid.  Measured on
+  // DragonFly 6.4-RELEASE/amd64 - SO_PEERCRED and LOCAL_PEEREID are both
+  // absent, LOCAL_PEERCRED is 1, and a connected pair reports
+  // "uid=0 ngroups=8 version=0" with no pid field to read.
+  //
+  // So *pid stays 0 and IsValidServer() takes its pid == 0 path.  That is
+  // the opposite shape from OpenBSD above: there the pid is real and only
+  // the path lookup is missing, here the path lookup works
+  // ({KERN_PROC, KERN_PROC_PATHNAME, pid} returns the executable) but
+  // there is no pid to feed it.
+  struct xucred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.cr_version != XUCRED_VERSION) {
+    LOG(ERROR) << "unexpected xucred version " << peer_cred.cr_version;
+    return false;
+  }
+
+  if (peer_cred.cr_uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.cr_uid << "!=" << ::geteuid();
+    return false;
+  }
 #else   // __FreeBSD__
   struct ucred peer_cred;
   int peer_cred_len = sizeof(peer_cred);

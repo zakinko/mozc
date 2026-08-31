@@ -50,6 +50,7 @@ enum class PlatformType {
   kNetBSD,    // NetBSD
   kFreeBSD,   // FreeBSD
   kOpenBSD,   // OpenBSD
+  kDragonFly,  // DragonFly BSD
 };
 
 // kTargetPlatform is the current build target platform.
@@ -67,6 +68,8 @@ inline constexpr PlatformType kTargetPlatform = PlatformType::kNetBSD;
 inline constexpr PlatformType kTargetPlatform = PlatformType::kFreeBSD;
 #elif defined(__OpenBSD__)                   // __FreeBSD__
 inline constexpr PlatformType kTargetPlatform = PlatformType::kOpenBSD;
+#elif defined(__DragonFly__)                 // __OpenBSD__
+inline constexpr PlatformType kTargetPlatform = PlatformType::kDragonFly;
 #elif defined(_WIN32)                        // __NetBSD__
 inline constexpr PlatformType kTargetPlatform = PlatformType::kWindows;
 #elif defined(__APPLE__)                     // _WIN32
@@ -146,6 +149,10 @@ constexpr bool IsNetBSD() {
 // The build target is OpenBSD.
 constexpr bool IsOpenBSD() {
   return internal::kTargetPlatform == internal::PlatformType::kOpenBSD;
+}
+
+constexpr bool IsDragonFly() {
+  return internal::kTargetPlatform == internal::PlatformType::kDragonFly;
 }
 
 // The build target is FreeBSD.
