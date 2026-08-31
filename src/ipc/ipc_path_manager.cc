@@ -395,8 +395,17 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
   server_pid_ = pid;
 #endif  // __APPLE__
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
   // FreeBSD does not mount procfs by default, so ask the kernel instead.
+  // DragonFly answers the same MIB - measured, 20 bytes back - even though
+  // it cannot reach here today: IsPeerValid() leaves *pid at 0 there for
+  // want of cr_pid, so the pid == 0 arm above returns first.  Keeping
+  // DragonFly in this branch means that if the field ever appears, the
+  // check starts working rather than falling through to the comparison
+  // below with an empty server_path_.
+  //
+  // KERN_PROC_PATHNAME is not the same number on the two (12 and 9), so
+  // this has to go through the symbol.
   {
     int name[] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME,
                   static_cast<int>(pid)};
@@ -406,11 +415,18 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
       LOG(ERROR) << "sysctl KERN_PROC_PATHNAME failed";
       return false;
     }
+    if (path_len == 0) {
+      // A wrong MIB order can succeed and hand back nothing; NetBSD does
+      // exactly that when given FreeBSD's order.  Do not read that as a
+      // path.
+      LOG(ERROR) << "sysctl KERN_PROC_PATHNAME returned no path";
+      return false;
+    }
     // path_len counts the terminating NUL.
-    server_path_.assign(path, path_len > 0 ? path_len - 1 : 0);
+    server_path_.assign(path, path_len - 1);
     server_pid_ = pid;
   }
-#endif  // __FreeBSD__
+#endif  // __FreeBSD__ || __DragonFly__
 
 #ifdef __NetBSD__
   // NetBSD ships procfs as noauto, so /proc/<pid>/exe is absent on a stock
@@ -425,11 +441,28 @@ bool IPCPathManager::IsValidServer(uint32_t pid,
       LOG(ERROR) << "sysctl KERN_PROC_PATHNAME failed";
       return false;
     }
+    if (path_len == 0) {
+      LOG(ERROR) << "sysctl KERN_PROC_PATHNAME returned no path";
+      return false;
+    }
     // path_len counts the terminating NUL.
-    server_path_.assign(path, path_len > 0 ? path_len - 1 : 0);
+    server_path_.assign(path, path_len - 1);
     server_pid_ = pid;
   }
 #endif  // __NetBSD__
+
+#ifdef __OpenBSD__
+  // OpenBSD has no KERN_PROC_PATHNAME and does not let a process learn
+  // another process's executable path by any other means either, so the
+  // comparison cannot be made here.
+  //
+  // Returning rather than falling through is the whole point: server_path_
+  // was cleared above, and the comparison at the end of this function would
+  // measure a real path against an empty string and refuse the connection.
+  // The uid check in IsPeerValid() is what carries the weight on OpenBSD.
+  server_pid_ = pid;
+  return true;
+#endif  // __OpenBSD__
 
 #ifdef __linux__
   // load from /proc/<pid>/exe
