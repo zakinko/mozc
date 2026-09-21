@@ -315,7 +315,7 @@ std::string GetMozcInstallDirFromRegistry() {
 
 std::string SystemUtil::GetServerDirectory() {
   if constexpr (port::IsLinuxBase() || port::IsWasm() || port::IsNetBSD() ||
-                port::IsFreeBSD()) {
+                port::IsFreeBSD() || port::IsOpenBSD() || port::IsDragonFly()) {
     return std::string(kMozcServerDir);
   }
 
@@ -371,7 +371,8 @@ std::string SystemUtil::GetToolPath() {
 }
 
 std::string SystemUtil::GetDocumentDirectory() {
-  if constexpr (port::IsLinuxBase() || port::IsNetBSD() || port::IsFreeBSD()) {
+  if constexpr (port::IsLinuxBase() || port::IsNetBSD() || port::IsFreeBSD() ||
+                port::IsOpenBSD() || port::IsDragonFly()) {
     return std::string(kMozcDocumentDir);
   } else if constexpr (port::IsAppleBase()) {
     return GetServerDirectory();
