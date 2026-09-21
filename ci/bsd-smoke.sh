@@ -36,6 +36,12 @@ id "$U"
 # n i h o n g o を一打ずつ、最後に space で変換。(EVENT_ID SendKey SESSION_ID KEY)
 # の KEY は ASCII code か key symbol。入出力は user の home に置く。
 H=$(eval echo "~$U")
+# mozc は profile を ~/.config/mozc に作るが、その mkdir は親を作らない。
+# 作りたての user の home には ~/.config が無く、
+#   Failed to create directory: .../.config/mozc: mkdir failed
+# から .session.ipc が読めず session-error になる (FreeBSD / NetBSD / OpenBSD
+# の三つとも)。実際の利用者の home には desktop が作った ~/.config が在る。
+mkdir -p "$H/.config"; chown "$U" "$H/.config"
 IN=$H/smoke-in; OUT=$H/smoke-out; ERR=$H/smoke-err
 {
 	echo '(1 CreateSession)'

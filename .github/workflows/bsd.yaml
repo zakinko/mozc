@@ -98,6 +98,9 @@ jobs:
           mem: 12288
           copyback: false
           prepare: |
+            # hardening.harden_rtld=1 が JDK の RUNPATH の $ORIGIN を Tainted
+            # process として拒む。LD_LIBRARY_PATH では越えられない。試験の箱では外す。
+            sysctl hardening.harden_rtld=0
             pkg install -y bazel9 openjdk21 bash python3 curl git
           run: |
             export JAVA_HOME=/usr/local/openjdk21

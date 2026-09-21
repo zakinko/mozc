@@ -4,6 +4,9 @@
 # off64_t。bazelbuild/bazel へ出す物と同じ) を当てて先に建てる。
 #
 # 使い方: alpine-bazel.sh   (mozc の checkout の根で)
+#
+# musl は fts(3) を libc に持たない (musl-fts が別 package で、-lfts で繋ぐ)。
+# base/file/recursive.cc が fts.h を要るので、それを入れて繋ぐ。
 set -eu
 MOZC_SRC=$PWD/src
 CI_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -34,6 +37,7 @@ cd "$MOZC_SRC"
 	--java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \
 	--action_env=PATH="$PATH" --host_action_env=PATH="$PATH" \
 	--extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
+	--linkopt=-lfts --host_linkopt=-lfts \
 	--verbose_failures
 ls -l bazel-bin/unix/emacs/mozc_emacs_helper bazel-bin/server/mozc_server
 sh "$CI_DIR/bsd-smoke.sh" "$(cd bazel-bin && pwd)"
