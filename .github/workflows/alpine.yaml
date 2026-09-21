@@ -1,0 +1,38 @@
+# Alpine (musl) で mozc を建てて動かす。Linux でも libc が違う箱。
+# bazel は musl 向けが配られていないので、job の中で先に建てる (40 分ほど)。
+name: CI for Alpine
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'ci/alpine-bazel.sh'
+      - 'ci/bsd-smoke.sh'
+      - 'ci/bazel-alpine-9.3.0.patch'
+      - '.github/workflows/alpine.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  alpine:
+    name: Alpine (musl)
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    timeout-minutes: 300
+    steps:
+      - name: Install the tools
+        run: |
+          apk add --no-cache openjdk21 build-base linux-headers zip unzip curl \
+            python3 patch findutils coreutils grep sed which git bash shadow
+      - uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build bazel with the musl fixes, then mozc
+        run: sh ci/alpine-bazel.sh

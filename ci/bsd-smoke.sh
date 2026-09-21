@@ -25,6 +25,10 @@ chmod 755 /usr/lib/mozc/mozc_server /usr/local/bin/mozc_emacs_helper
 U=mozcsmoke
 case "$OS" in
 FreeBSD|GhostBSD|HardenedBSD|MidnightBSD|DragonFly) pw useradd "$U" -m -s /bin/sh 2>/dev/null || true ;;
+Linux)
+	# Alpine の busybox は useradd を持たない。adduser -D で password 無し。
+	if command -v useradd >/dev/null 2>&1; then useradd -m -s /bin/sh "$U" 2>/dev/null || true
+	else adduser -D -s /bin/sh "$U" 2>/dev/null || true; fi ;;
 *) useradd -m -s /bin/sh "$U" 2>/dev/null || true ;;
 esac
 id "$U"
