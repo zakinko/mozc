@@ -10,6 +10,9 @@
 # 「bazel がある BSD」として同じ道を通る。
 set -e
 
+# 煙試験の script は cd する前に絶対 path で覚える。相対のままだと src/ へ
+# 移ったあとで見つからない (NetBSD で exit 2 になった)。
+CI_DIR=$(cd "$(dirname "$0")" && pwd)
 BAZEL_REPO=${BAZEL_REPO:-https://github.com/zakinko/bazel.git}
 BAZEL_BRANCH=${BAZEL_BRANCH:-netbsd-ci}
 MOZC_SRC=$(pwd)/src
@@ -50,7 +53,10 @@ fi
 # OpenBSD は C++ のオブジェクトを C のドライバでリンクするので、C++ の
 # ランタイムを明示的に繋ぐ必要がある。bazel 自身の bootstrap でも同じことを
 # している。exec 側 (protoc-gen-cpp など) にも要るので両方に渡す。
-MOZC_LINKOPTS=""
+# どの BSD でも libm は別 library で、bazel の BSD toolchain は -lm を足さない
+# (rules_cc #862)。mozc_server が引く gen_suggestion_filter_main が round と
+# log と pow で link に落ちる。bazel 自身の bootstrap と同じく明示する。
+MOZC_LINKOPTS="--linkopt=-lm --host_linkopt=-lm"
 if [ "$(uname -s)" = OpenBSD ]; then
 	for l in -lc++ -lc++abi -lpthread; do
 		MOZC_LINKOPTS="$MOZC_LINKOPTS --linkopt=$l --host_linkopt=$l"
@@ -75,4 +81,4 @@ cd "$MOZC_SRC"
 ls -l bazel-bin/unix/emacs/mozc_emacs_helper bazel-bin/server/mozc_server
 
 # 建っただけでは IPC の腕は踏めない。動かして変換させる。
-sh "$(dirname "$0")/bsd-smoke.sh" "$(cd bazel-bin && pwd)"
+sh "$CI_DIR/bsd-smoke.sh" "$(cd bazel-bin && pwd)"

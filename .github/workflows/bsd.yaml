@@ -101,6 +101,13 @@ jobs:
             pkg install -y bazel9 openjdk21 bash python3 curl git
           run: |
             export JAVA_HOME=/usr/local/openjdk21
+            # package の java が libjli.so を見つけられない (ld-elf.so.1)。原因は
+            # 箱の側で、rtld か hardening の設定。診断を出してから library の
+            # 場所を直接教える。
+            ldd "$JAVA_HOME/bin/java" 2>&1 | head -5 || true
+            sysctl -a 2>/dev/null | grep -i 'hardening' | head -8 || true
+            export LD_LIBRARY_PATH="$JAVA_HOME/lib:$JAVA_HOME/lib/server"
+            "$JAVA_HOME/bin/java" -version
             sh ci/bsd-bazel.sh
 
   netbsd:
@@ -193,7 +200,11 @@ jobs:
           mem: 8192
           copyback: false
           prepare: |
-            pkg install -y openjdk21 bash zip unzip python3 go curl git
+            # openjdk21 の post-install (registervm) が落ちて pkg install が
+            # 途中で止まり、同じ行の git が入らなかった。道具を先に、jdk は別に。
+            pkg install -y git bash zip unzip python3 go curl
+            pkg install -y openjdk21 || true
+            test -x /usr/local/openjdk21/bin/javac
           run: |
             export JAVA_HOME=/usr/local/openjdk21
             export BAZEL_SH=/usr/local/bin/bash

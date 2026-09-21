@@ -5,7 +5,8 @@
 #
 # 使い方: alpine-bazel.sh   (mozc の checkout の根で)
 set -eu
-MOZC_SRC=$PWD
+MOZC_SRC=$PWD/src
+CI_DIR=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-/var/tmp/alpine-bazel}
 BAZEL_VER=${BAZEL_VER:-9.3.0rc2}
 export JAVA_HOME=${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk}
@@ -15,7 +16,7 @@ if [ ! -x "$WORK/dist/output/bazel" ]; then
 	echo "=== bazel $BAZEL_VER を musl の当て物で建てる"
 	rm -rf "$WORK"; mkdir -p "$WORK/dist"
 	curl -fsSL -o "$WORK/dist.zip" "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VER}/bazel-${BAZEL_VER}-dist.zip"
-	( cd "$WORK/dist" && unzip -q ../dist.zip && patch -p1 -f -i "$MOZC_SRC/ci/bazel-alpine-9.3.0.patch" </dev/null )
+	( cd "$WORK/dist" && unzip -q ../dist.zip && patch -p1 -f -i "$CI_DIR/bazel-alpine-9.3.0.patch" </dev/null )
 	( cd "$WORK/dist" && env EXTRA_BAZEL_ARGS="--java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk" \
 		bash ./compile.sh > compile.log 2>&1 ) || true
 	[ -x "$WORK/dist/output/bazel" ] || { echo "bazel が建たない"; tail -40 "$WORK/dist/compile.log"; exit 1; }
@@ -35,4 +36,4 @@ cd "$MOZC_SRC"
 	--extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
 	--verbose_failures
 ls -l bazel-bin/unix/emacs/mozc_emacs_helper bazel-bin/server/mozc_server
-sh "$(dirname "$0")/bsd-smoke.sh" "$(cd bazel-bin && pwd)"
+sh "$CI_DIR/bsd-smoke.sh" "$(cd bazel-bin && pwd)"
