@@ -101,6 +101,11 @@ jobs:
             # hardening.harden_rtld=1 が JDK の RUNPATH の $ORIGIN を Tainted
             # process として拒む。LD_LIBRARY_PATH では越えられない。試験の箱では外す。
             sysctl hardening.harden_rtld=0
+            # 次は JVM が CodeHeap を確保できずに止まる。PaX の MPROTECT が JIT の
+            # W^X を拒む (NetBSD の PaX と同じ顔)。試験の箱では両方外す。
+            sysctl hardening.pax.mprotect.status=0 || true
+            sysctl hardening.pax.pageexec.status=0 || true
+            sysctl -a 2>/dev/null | grep 'hardening.pax' | head -12 || true
             pkg install -y bazel9 openjdk21 bash python3 curl git
           run: |
             export JAVA_HOME=/usr/local/openjdk21
