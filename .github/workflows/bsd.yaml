@@ -18,6 +18,7 @@ on:
     paths: &bsd_paths
       - 'src/**'
       - 'ci/bsd-bazel.sh'
+      - 'ci/bsd-smoke.sh'
       - '.github/workflows/bsd.yaml'
   pull_request:
     paths: *bsd_paths
@@ -45,6 +46,53 @@ jobs:
           persist-credentials: false
       - name: Build in a FreeBSD VM
         uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          mem: 12288
+          copyback: false
+          prepare: |
+            pkg install -y bazel9 openjdk21 bash python3 curl git
+          run: |
+            export JAVA_HOME=/usr/local/openjdk21
+            sh ci/bsd-bazel.sh
+
+  # GhostBSD と HardenedBSD は FreeBSD の userland で、pkg も FreeBSD の物が
+  # 使える。同じ __FreeBSD__ の腕を、別の箱でもう一度踏む。
+
+  ghostbsd:
+    name: GhostBSD
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in a GhostBSD VM
+        uses: vmactions/ghostbsd-vm@v1
+        with:
+          usesh: true
+          mem: 12288
+          copyback: false
+          prepare: |
+            pkg install -y bazel9 openjdk21 bash python3 curl git
+          run: |
+            export JAVA_HOME=/usr/local/openjdk21
+            sh ci/bsd-bazel.sh
+
+  hardenedbsd:
+    name: HardenedBSD
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Build in a HardenedBSD VM
+        uses: vmactions/hardenedbsd-vm@v1
         with:
           usesh: true
           mem: 12288

@@ -62,7 +62,7 @@ cd "$MOZC_SRC"
 # rules_python が配る interpreter は Linux と macOS と Windows の分だけなので、
 # BSD には箱に入っている python を使わせる。
 "$BAZEL" --output_user_root="$WORK/bazel-user-root" \
-	build unix/emacs:mozc_emacs_helper \
+	build unix/emacs:mozc_emacs_helper server:mozc_server \
 	--config oss_linux \
 	--compilation_mode opt \
 	--jobs 2 \
@@ -72,4 +72,7 @@ cd "$MOZC_SRC"
 	$MOZC_LINKOPTS \
 	--verbose_failures
 
-ls -l bazel-bin/unix/emacs/mozc_emacs_helper
+ls -l bazel-bin/unix/emacs/mozc_emacs_helper bazel-bin/server/mozc_server
+
+# 建っただけでは IPC の腕は踏めない。動かして変換させる。
+sh "$(dirname "$0")/bsd-smoke.sh" "$(cd bazel-bin && pwd)"
