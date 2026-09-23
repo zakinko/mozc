@@ -110,7 +110,7 @@ bool Process::OpenBrowser(absl::string_view url) {
 #endif  // MOZC_BROWSER_COMMAND
 
   return SpawnProcess(MOZC_BROWSER_COMMAND, url);
-#endif  // __linux__
+#endif  // __linux__ || the BSDs
 
 #ifdef __APPLE__
   return MacProcess::OpenBrowserForMac(url);
@@ -214,7 +214,7 @@ bool Process::SpawnProcess(absl::string_view path, absl::string_view arg,
   // (www.gnu.org/software/libc/manual/html_node/Heap-Consistency-Checking.html)
   constexpr int kOverwrite = 0;  // Do not overwrite.
   ::setenv("MALLOC_CHECK_", "2", kOverwrite);
-#endif  // __linux__
+#endif  // __linux__ || the BSDs
   pid_t tmp_pid = 0;
 
   // Spawn new process.
@@ -402,7 +402,7 @@ bool Process::LaunchErrorMessageDialog(absl::string_view error_type) {
     LOG(ERROR) << "cannot launch " << kMozcTool;
     return false;
   }
-#endif  // __linux__ && !__ANDROID__
+#endif  // (__linux__ || the BSDs) && !__ANDROID__
 
   return true;
 }

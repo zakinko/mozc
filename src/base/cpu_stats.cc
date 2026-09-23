@@ -123,7 +123,7 @@ float CPUStats::GetSystemCPULoad() {
   // can take the info from /proc/stats
   const uint64_t total_times = 0;
   const uint64_t cpu_times = 0;
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
   return UpdateCPULoad(total_times, cpu_times, &prev_system_total_times_,
                        &prev_system_cpu_times_);
@@ -175,7 +175,7 @@ float CPUStats::GetCurrentProcessCPULoad() {
   // not implemented
   const uint64_t total_times = 0;
   const uint64_t cpu_times = 0;
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
   return UpdateCPULoad(total_times, cpu_times,
                        &prev_current_process_total_times_,
@@ -206,6 +206,6 @@ size_t CPUStats::GetNumberOfProcessors() const {
     defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   // Not implemented
   return 1;
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 }
 }  // namespace mozc

@@ -267,7 +267,7 @@ bool WinMacPasswordManager::RemovePassword() { return RemovePasswordFile(); }
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
     defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 typedef PlainPasswordManager DefaultPasswordManager;
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
 // Windows or Mac
 #if (defined(_WIN32) || defined(__APPLE__))

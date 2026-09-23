@@ -568,7 +568,7 @@ std::string SystemUtil::GetDesktopNameAsString() {
 #if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
     defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   return Environ::GetEnv("DISPLAY");
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
 #if defined(__APPLE__)
   return "";
@@ -686,7 +686,7 @@ uint64_t SystemUtil::GetTotalPhysicalMemory() {
 #else   // defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
   return 0;
 #endif  // defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
   // If none of the above platforms is specified, the compiler raises an error
   // because of no return value.

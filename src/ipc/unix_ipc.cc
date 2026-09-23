@@ -235,7 +235,7 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.pid;
-#endif  // !__linux__
+#endif  // !__NetBSD__ && !__OpenBSD__ && !__FreeBSD__ && !__DragonFly__
 
   return true;
 }
@@ -588,4 +588,4 @@ void IPCServer::Terminate() {
 
 }  // namespace mozc
 
-#endif  // __linux__
+#endif  // __linux__ || the BSDs
