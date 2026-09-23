@@ -40,17 +40,17 @@ namespace internal {
 
 // PlatformType represents a mutually exclusive list of target platforms.
 enum class PlatformType {
-  kWindows,   // Windows
-  kLinux,     // Linux, excluding Android (different from target_is_linux)
-  kMacos,     // macOS
-  kAndroid,   // Android
-  kIos,       // iOS Devices or Simulator
-  kWasm,      // WebAssembly
-  kChromeos,  // ChromeOS
-  kNetBSD,    // NetBSD
-  kFreeBSD,   // FreeBSD
-  kOpenBSD,   // OpenBSD
-  kDragonFly, // DragonFly BSD
+  kWindows,    // Windows
+  kLinux,      // Linux, excluding Android (different from target_is_linux)
+  kMacos,      // macOS
+  kAndroid,    // Android
+  kIos,        // iOS Devices or Simulator
+  kWasm,       // WebAssembly
+  kChromeos,   // ChromeOS
+  kNetBSD,     // NetBSD
+  kFreeBSD,    // FreeBSD
+  kOpenBSD,    // OpenBSD
+  kDragonFly,  // DragonFly BSD
 };
 
 // kTargetPlatform is the current build target platform.

@@ -392,7 +392,7 @@ bool Process::LaunchErrorMessageDialog(absl::string_view error_type) {
 #endif  // _WIN32
 
 #if (defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
-     defined(__OpenBSD__) || defined(__DragonFly__)) && \
+     defined(__OpenBSD__) || defined(__DragonFly__)) &&                   \
     !defined(__ANDROID__)
   constexpr char kMozcTool[] = "mozc_tool";
   const std::string arg =

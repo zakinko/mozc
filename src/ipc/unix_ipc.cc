@@ -133,14 +133,14 @@ bool IsPeerValid(int socket, pid_t *pid) {
   struct unpcbid peer_cred;
   int peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, 0, LOCAL_PEEREID, &peer_cred,
-                 reinterpret_cast<socklen_t *>(&peer_cred_len)) < 0) {
+                 reinterpret_cast<socklen_t*>(&peer_cred_len)) < 0) {
     LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
     return false;
   }
 
   if (peer_cred.unp_euid != ::geteuid()) {
-    LOG(WARNING) << "uid mismatch." << peer_cred.unp_euid << "!="
-                 << ::geteuid();
+    LOG(WARNING) << "uid mismatch." << peer_cred.unp_euid
+                 << "!=" << ::geteuid();
     return false;
   }
 
@@ -157,8 +157,8 @@ bool IsPeerValid(int socket, pid_t *pid) {
   // there is no pid to be had in the first place.
   struct sockpeercred peer_cred;
   socklen_t peer_cred_len = sizeof(peer_cred);
-  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred,
-                 &peer_cred_len) < 0) {
+  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred, &peer_cred_len) <
+      0) {
     LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
     return false;
   }

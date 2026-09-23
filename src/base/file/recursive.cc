@@ -103,7 +103,7 @@ void UnlinkFileOrLog(const char* path) {
 }
 }  // namespace
 
-#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__NetBSD__) || \
+#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__NetBSD__) ||   \
     defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || \
     (defined(TARGET_OS_OSX) && TARGET_OS_OSX)
 
