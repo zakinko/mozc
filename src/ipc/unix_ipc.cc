@@ -27,8 +27,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// __linux__ only. Note that __ANDROID__/__wasm__ don't reach here.
-#if defined(__linux__)
+// __linux__ and the BSDs only. Note that __ANDROID__/__wasm__ don't reach
+// here.
+#if defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
+    defined(__OpenBSD__) || defined(__DragonFly__)
 
 #include <fcntl.h>
 #include <sys/select.h>
@@ -37,6 +39,10 @@
 #include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#ifdef __FreeBSD__
+#include <sys/ucred.h>
+#endif  // __FreeBSD__
 
 #include <cerrno>
 #include <cstddef>
@@ -121,6 +127,100 @@ bool IsWriteTimeout(int socket, absl::Duration timeout) {
 bool IsPeerValid(int socket, pid_t *pid) {
   *pid = 0;
 
+#if defined(__NetBSD__)
+  // NetBSD has no SO_PEERCRED.  The equivalent is LOCAL_PEEREID on the
+  // unix domain protocol level, which fills in struct unpcbid.
+  struct unpcbid peer_cred;
+  int peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEEREID, &peer_cred,
+                 reinterpret_cast<socklen_t*>(&peer_cred_len)) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.unp_euid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.unp_euid
+                 << "!=" << ::geteuid();
+    return false;
+  }
+
+  *pid = peer_cred.unp_pid;
+#elif defined(__OpenBSD__)
+  // OpenBSD does have SO_PEERCRED; it fills in struct sockpeercred, which
+  // carries the pid alongside the uid and gid.  Measured on OpenBSD 7.8:
+  // SO_PEERCRED is 4130 and a bound/connected AF_UNIX pair reports the
+  // peer's pid.
+  //
+  // What OpenBSD does not have is KERN_PROC_PATHNAME, so the pid cannot be
+  // turned into an executable path.  IsValidServer() gets a real pid here
+  // and skips only the path comparison - unlike DragonFly below, where
+  // there is no pid to be had in the first place.
+  struct sockpeercred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred, &peer_cred_len) <
+      0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.uid << "!=" << ::geteuid();
+    return false;
+  }
+
+  *pid = peer_cred.pid;
+#elif defined(__FreeBSD__)
+  // FreeBSD has no SO_PEERCRED.  LOCAL_PEERCRED fills in struct xucred,
+  // whose cr_pid sits in a union with an unused pointer.  Measured on
+  // FreeBSD 14.3-RELEASE/amd64: a forked pair reports cr_pid as the
+  // child's pid, not the caller's, so it really is the peer's.
+  struct xucred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.cr_version != XUCRED_VERSION) {
+    LOG(ERROR) << "unexpected xucred version " << peer_cred.cr_version;
+    return false;
+  }
+
+  if (peer_cred.cr_uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.cr_uid << "!=" << ::geteuid();
+    return false;
+  }
+
+  *pid = peer_cred.cr_pid;
+#elif defined(__DragonFly__)
+  // DragonFly has LOCAL_PEERCRED and struct xucred like FreeBSD, but its
+  // xucred stops at the group list: there is no cr_pid.  Measured on
+  // DragonFly 6.4-RELEASE/amd64 - SO_PEERCRED and LOCAL_PEEREID are both
+  // absent, LOCAL_PEERCRED is 1, and a connected pair reports
+  // "uid=0 ngroups=8 version=0" with no pid field to read.
+  //
+  // So *pid stays 0 and IsValidServer() takes its pid == 0 path.  That is
+  // the opposite shape from OpenBSD above: there the pid is real and only
+  // the path lookup is missing, here the path lookup works
+  // ({KERN_PROC, KERN_PROC_PATHNAME, pid} returns the executable) but
+  // there is no pid to feed it.
+  struct xucred peer_cred;
+  socklen_t peer_cred_len = sizeof(peer_cred);
+  if (getsockopt(socket, 0, LOCAL_PEERCRED, &peer_cred, &peer_cred_len) < 0) {
+    LOG(ERROR) << "cannot get peer credential. Not a Unix socket?";
+    return false;
+  }
+
+  if (peer_cred.cr_version != XUCRED_VERSION) {
+    LOG(ERROR) << "unexpected xucred version " << peer_cred.cr_version;
+    return false;
+  }
+
+  if (peer_cred.cr_uid != ::geteuid()) {
+    LOG(WARNING) << "uid mismatch." << peer_cred.cr_uid << "!=" << ::geteuid();
+    return false;
+  }
+#else   // __FreeBSD__
   struct ucred peer_cred;
   int peer_cred_len = sizeof(peer_cred);
   if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &peer_cred,
@@ -135,6 +235,7 @@ bool IsPeerValid(int socket, pid_t *pid) {
   }
 
   *pid = peer_cred.pid;
+#endif  // !__NetBSD__ && !__OpenBSD__ && !__FreeBSD__ && !__DragonFly__
 
   return true;
 }
@@ -265,7 +366,12 @@ void IPCClient::Init(absl::string_view name,
     address.sun_family = AF_UNIX;
     absl::SNPrintF(address.sun_path, sizeof(address.sun_path), "%s",
                    server_address);
-    const size_t sun_len = sizeof(address.sun_family) + server_address_length;
+    // sizeof(sun_family) is not the offset of sun_path.  NetBSD's
+    // sockaddr_un leads with a one byte sun_len and has a one byte
+    // sa_family_t, so adding sizeof(sun_family) is one short there and the
+    // last character of the path is cut off.
+    const size_t sun_len =
+        offsetof(struct sockaddr_un, sun_path) + server_address_length;
     pid_t pid = 0;
     if (::connect(socket_, reinterpret_cast<const sockaddr *>(&address),
                   sun_len) != 0 ||
@@ -381,7 +487,8 @@ IPCServer::IPCServer(absl::string_view name, int32_t num_connections,
   int on = 1;
   ::setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on),
                sizeof(on));
-  const size_t sun_len = sizeof(addr.sun_family) + server_address_.size();
+  const size_t sun_len =
+      offsetof(struct sockaddr_un, sun_path) + server_address_.size();
   if (is_file_socket) {
     // Linux does not use files for IPC.
     ::chmod(server_address_.c_str(), 0600);
@@ -481,4 +588,4 @@ void IPCServer::Terminate() {
 
 }  // namespace mozc
 
-#endif  // __linux__
+#endif  // __linux__ || the BSDs
