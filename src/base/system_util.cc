@@ -215,7 +215,8 @@ std::string UserProfileDirectoryImpl::GetUserProfileDirectory() const {
     return FileUtil::JoinPath(dir, "Mozc");
 #endif  //  GOOGLE_JAPANESE_INPUT_BUILD
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
+    defined(__OpenBSD__) || defined(__DragonFly__)
     // 1. If "$HOME/.mozc" already exists,
     //    use "$HOME/.mozc" for backward compatibility.
     // 2. If $XDG_CONFIG_HOME is defined
@@ -313,7 +314,8 @@ std::string GetMozcInstallDirFromRegistry() {
 #endif  // _WIN32
 
 std::string SystemUtil::GetServerDirectory() {
-  if constexpr (port::IsLinuxBase() || port::IsWasm()) {
+  if constexpr (port::IsLinuxBase() || port::IsWasm() || port::IsNetBSD() ||
+                port::IsFreeBSD() || port::IsOpenBSD() || port::IsDragonFly()) {
     return std::string(kMozcServerDir);
   }
 
@@ -369,7 +371,8 @@ std::string SystemUtil::GetToolPath() {
 }
 
 std::string SystemUtil::GetDocumentDirectory() {
-  if constexpr (port::IsLinuxBase()) {
+  if constexpr (port::IsLinuxBase() || port::IsNetBSD() || port::IsFreeBSD() ||
+                port::IsOpenBSD() || port::IsDragonFly()) {
     return std::string(kMozcDocumentDir);
   } else if constexpr (port::IsAppleBase()) {
     return GetServerDirectory();
@@ -562,9 +565,10 @@ std::string GetSessionIdString() {
 #endif  // _WIN32
 
 std::string SystemUtil::GetDesktopNameAsString() {
-#if defined(__linux__) || defined(__wasm__)
+#if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
+    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   return Environ::GetEnv("DISPLAY");
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
 #if defined(__APPLE__)
   return "";
@@ -623,6 +627,14 @@ std::string SystemUtil::GetOSVersionString() {
                           AndroidUtil::kSystemPropertyOsVersion, "Unknown"));
 #elif defined(__linux__)
   return "Linux";
+#elif defined(__NetBSD__)
+  return "NetBSD";
+#elif defined(__FreeBSD__)
+  return "FreeBSD";
+#elif defined(__OpenBSD__)
+  return "OpenBSD";
+#elif defined(__DragonFly__)
+  return "DragonFly";
 #else   // !_WIN32 && !__APPLE__ && !__linux__
   return "Unknown";
 #endif  // _WIN32, __APPLE__, __linux__
@@ -660,7 +672,8 @@ uint64_t SystemUtil::GetTotalPhysicalMemory() {
   return total_memory;
 #endif  // __APPLE__
 
-#if defined(__linux__) || defined(__wasm__)
+#if defined(__linux__) || defined(__wasm__) || defined(__NetBSD__) || \
+    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 #if defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
   const int32_t page_size = sysconf(_SC_PAGESIZE);
   const int32_t number_of_phyisical_pages = sysconf(_SC_PHYS_PAGES);
@@ -673,7 +686,7 @@ uint64_t SystemUtil::GetTotalPhysicalMemory() {
 #else   // defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
   return 0;
 #endif  // defined(_SC_PAGESIZE) && defined(_SC_PHYS_PAGES)
-#endif  // __linux__ || __wasm__
+#endif  // __linux__ || __wasm__ || the BSDs
 
   // If none of the above platforms is specified, the compiler raises an error
   // because of no return value.
